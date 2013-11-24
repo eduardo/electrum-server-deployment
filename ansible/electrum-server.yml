@@ -1,6 +1,14 @@
 ---
 - hosts: all
   remote_user: root
+  vars_prompt:
+    - name: rpcusername
+      prompt: 'rpcuser for bitcoin daemon'
+      private: no
+    - name: rpcpassword
+      prompt: 'rpcpassword for bitcoin daemon'
+      private: yes
+
 
   tasks:
   - name: install required tools
@@ -21,18 +29,19 @@
       - jsonrpclib
       - pyopenssl
       - pip
+    tags: electrum
 
   - name: install leveldb for electrum server
     pip: name=leveldb
+    tags: electrum
 
   - name: install bitcoin server (bitcoind)
     yum: pkg=bitcoin-server state=latest
     tags: bitcoind
 
   - name: configure bitcoind
-    copy: src=files/bitcoin.conf dest=/etc/bitcoin/bitcoin.conf
+    template: src=files/bitcoin.conf dest=/etc/bitcoin/bitcoin.conf force=yes backup=yes
     tags: bitcoind
-
 
   - name: start bitcoind
     service:
@@ -41,13 +50,16 @@
     tags: bitcoind
 
   - name: install electrum server
-    git: repo=https://github.com/spesmilo/electrum-server.git dest=/opt/local/electrum
+    git: 'repo=https://github.com/spesmilo/electrum-server.git dest=/opt/local/electrum-server'
+    tags: electrum
 
   - name: assign bitcoin user to electrum-server
-    file: path=/opt/local/electrum-server owner=bitcoin group=bitcoin
-    file: path=/var/lib/local/electrumdb owner=bitcoin group=bitcoin
+    file: path=/opt/local/electrum-server owner=bitcoin group=bitcoin state=directory
+    file: path=/var/lib/local/electrumdb owner=bitcoin group=bitcoin state=directory
+    tags: electrum
 
   - name: configure electrum server
-    copy: src=files/electrum.conf dest=/etc/electrum.conf
+    template: src=files/electrum.conf dest=/etc/electrum.conf force=yes backup=yes
+    tags: electrum
 
-# Next up is to prime the electru DB with http://foundry.electrum.org/leveldb-dump/electrum-leveldb-100-2013-11-24.tar.bz2
+# Next up is to prime the electrum DB with http://foundry.electrum.org/leveldb-dump/electrum-leveldb-100-2013-11-24.tar.bz2
