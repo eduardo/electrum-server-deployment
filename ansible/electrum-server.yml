@@ -1,0 +1,53 @@
+---
+- hosts: all
+  remote_user: root
+
+  tasks:
+  - name: install required tools
+    yum: pkg=python-setuptools state=latest
+    yum: pkg=git-core state=latest
+    yum: pkg=openssl-devel state=latest
+    yum: pkg=python-devel state=latest
+
+
+  - name: install ringingliberty repo for bitcoind
+    shell: rpm -Uvh http://linux.ringingliberty.com/bitcoin/el6/x86_64/bitcoin-release-1-4.noarch.rpm creates=/etc/yum.repos.d/bitcoin.repo
+    shell: rpm --import http://linux.ringingliberty.com/bitcoin/RPM-GPG-KEY-bitcoin creates=/etc/pki/rpm-gpg/RPM-GPG-KEY-bitcoin
+    tags: bitcoind
+
+  - name: install python libs for electrum server
+    action: easy_install name={{ item }}
+    with_items:
+      - jsonrpclib
+      - pyopenssl
+      - pip
+
+  - name: install leveldb for electrum server
+    pip: name=leveldb
+
+  - name: install bitcoin server (bitcoind)
+    yum: pkg=bitcoin-server state=latest
+    tags: bitcoind
+
+  - name: configure bitcoind
+    copy: src=files/bitcoin.conf dest=/etc/bitcoin/bitcoin.conf
+    tags: bitcoind
+
+
+  - name: start bitcoind
+    service:
+      name: bitcoin
+      state: restarted
+    tags: bitcoind
+
+  - name: install electrum server
+    git: repo=https://github.com/spesmilo/electrum-server.git dest=/opt/local/electrum
+
+  - name: assign bitcoin user to electrum-server
+    file: path=/opt/local/electrum-server owner=bitcoin group=bitcoin
+    file: path=/var/lib/local/electrumdb owner=bitcoin group=bitcoin
+
+  - name: configure electrum server
+    copy: src=files/electrum.conf dest=/etc/electrum.conf
+
+# Next up is to prime the electru DB with http://foundry.electrum.org/leveldb-dump/electrum-leveldb-100-2013-11-24.tar.bz2
